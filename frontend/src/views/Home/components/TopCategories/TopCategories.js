@@ -1,12 +1,30 @@
+
+
+import { useEffect, useState } from 'react'
 import { ArrowRight } from '@mui/icons-material'
 import { Button, Card, CardActionArea, CardContent, CardMedia, Chip, Link, Paper, useTheme, Grid } from '@mui/material'
 import { SliderArrow } from 'components'
 import Headline from '../Headline'
 import WidgetsIcon from '@mui/icons-material/Widgets'
 import Slider from 'react-slick'
+import axios from 'axios'
 
 const TopCategories = () => {
   const theme = useTheme()
+  const [categories, setCategories] = useState([])
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/categories')
+        console.log("Fetched categories:", response.data) // Log dữ liệu ra console
+        setCategories(response.data)
+      } catch (error) {
+        console.error("Error fetching categories:", error)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   const settings = {
     dots: false,
@@ -63,8 +81,8 @@ const TopCategories = () => {
         Top Categories
       </Headline>
       <Slider {...settings} style={{ paddingTop: 8, paddingBottom: 8 }}>
-        {[...Array(6)].map((item, i) => (
-          <Grid item xs={12} sm={12} md={2} lg={3} key={i}>
+        {categories.map((category) => (
+          <Grid item xs={12} sm={12} md={2} lg={3} key={category.id}>
             <Card
               elevation={0}
               sx={{
@@ -79,23 +97,14 @@ const TopCategories = () => {
                       color="secondary"
                       size="small"
                       sx={{ px: 0.5, position: 'absolute', top: 10, left: 10, fontWeight: 600 }}
-                      label="Headphones"
+                      label={category.name}
                     />
-                    <Chip
-                      color="secondary"
-                      size="small"
-                      sx={{
-                        px: 0.5,
-                        position: 'absolute',
-                        top: 10,
-                        right: 10,
-                        fontWeight: 600,
-                        bgcolor: 'action.selected',
-                        color: 'text.primary',
-                      }}
-                      label="3k orders this week"
+                    <CardMedia
+                      component="img"
+                      height="120"
+                      image={category.categoryUrl}
+                      alt={category.categoryName}
                     />
-                    <CardMedia component="img" height="120" image="/images/category-1.webp" alt="cat" />
                   </Paper>
                 </CardActionArea>
               </CardContent>

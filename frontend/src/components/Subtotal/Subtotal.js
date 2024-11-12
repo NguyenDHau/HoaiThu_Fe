@@ -25,13 +25,13 @@ const Subtotal = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: 14, color: (theme) => theme.palette.grey[500], mb: 1 }}>Tax:</Typography>
         <Typography sx={{ fontSize: 19 }}>
-          <DisplayCurrency number={10} />
+          <DisplayCurrency number={0} />
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: 14, color: (theme) => theme.palette.grey[500], mb: 1 }}>Discount:</Typography>
         <Typography sx={{ fontSize: 19 }}>
-          <DisplayCurrency number={`-${priceWithoutDiscount - totalPrice}`} />
+          <DisplayCurrency number={priceWithoutDiscount} />
         </Typography>
       </Box>
       <Divider sx={{ my: 1 }} />
@@ -77,5 +77,4 @@ const Subtotal = () => {
     </Paper>
   )
 }
-
 export default Subtotal

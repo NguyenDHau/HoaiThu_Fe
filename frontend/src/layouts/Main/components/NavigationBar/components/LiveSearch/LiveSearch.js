@@ -14,15 +14,24 @@ const LiveSearch = ({ toggleDrawer, setState }) => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    try {
-      axios.get(`${API_URL}/products?page=1&productsPerPage=30`).then((res) => {
-        setJsonResults(res?.data?.result)
-      })
-    } catch (error) {
-      setError(error)
-    }
+    const accessToken = localStorage.getItem('accessToken');
+    
+    const fetchProducts = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/products?page=1&productsPerPage=30`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        setJsonResults(res?.data?.result);
+      } catch (error) {
+        setError(error);
+      }
+    };
+
+    fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   const onKeyPress = (e) => {
     if (e.key === 'Enter') {

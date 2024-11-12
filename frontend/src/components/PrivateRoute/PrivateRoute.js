@@ -8,14 +8,15 @@ import React from 'react'
  */
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth()
-  let location = useLocation()
+  // const { isAuthenticated } = useAuth()
+  // let location = useLocation()
 
-  if (!isAuthenticated) {
-    return <Navigate to={PageURLs.Login} state={{ from: location }} replace />
-  } else {
-    return children
-  }
+  // if (!isAuthenticated) {
+  //   return <Navigate to={PageURLs.Login} state={{ from: location }} replace />
+  // } else {
+  //   return children
+  // }
+  return children;
 }
 
 export default PrivateRoute

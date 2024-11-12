@@ -5,7 +5,7 @@ import {
   NewArrivals,
   TopCategories,
   TopRatings,
-  FeaturedBrands,
+  // FeaturedBrands,
   ProductList,
   Delivery,
   FlashDeals,
@@ -20,12 +20,12 @@ const Home = () => {
         <FlashDeals />
         <TopCategories />
         <Grid container spacing={4} sx={{ my: 1 }}>
-          <Grid item md={6} xs={12}>
+          <Grid item md={12} xs={12}>
             <TopRatings />
           </Grid>
-          <Grid item md={6} xs={12}>
+          {/* <Grid item md={6} xs={12}>
             <FeaturedBrands />
-          </Grid>
+          </Grid> */}
           <Grid item md={12} xs={12}>
             <NewArrivals />
           </Grid>

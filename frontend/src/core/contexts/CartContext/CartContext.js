@@ -1,244 +1,210 @@
-import { createContext, useReducer, useEffect, useContext } from 'react'
-import { queryParamAsArray } from 'utils'
-import { useSnackbar } from 'notistack'
-import useSWR from 'swr'
-import { useAuth } from '../AuthContext'
+
+import { createContext, useReducer, useEffect, useContext } from 'react';
+import { useSnackbar } from 'notistack';
+import axios from 'axios';
 
 const cartReducer = (state, action) => {
-  const { type, payload } = action
+  const { type, payload } = action;
 
   switch (type) {
     case 'CART_LOADED':
-      const initialCart = state.cart
-        .filter((item) => payload.map((productData) => productData._id).includes(item._id))
-        .filter((item) => payload.find((productData) => productData._id === item._id)?.stock !== 0)
-        .map((item) => {
-          const product = payload.find((productData) => productData._id === item._id)
-
-          return {
-            ...item,
-            title: product.title,
-            price: product.price,
-            stock: product.stock,
-            quantity: item.quantity >= product.stock ? product.stock : item.quantity,
-            thumbnail: product.thumbnail,
-            discountPercentage: product.discountPercentage,
-          }
-        })
-      localStorage.setItem('cart', JSON.stringify(initialCart))
       return {
         ...state,
-        cart: initialCart,
+        cart: payload,
         isCartLoading: false,
-      }
-    case 'EMPTY_CART':
+      };
+    case 'UPDATE_TOTALS':
+      return {
+        ...state,
+        quantity: payload.quantity,
+        totalPrice: payload.totalPrice,
+      };
+    case 'UPDATE_CART_ITEM':
+      return {
+        ...state,
+        cart: state.cart.map((item) =>
+          item.id === payload.id ? { ...item, quantity: payload.quantity } : item
+        ),
+      };
+    case 'REMOVE_CART_ITEM':
+      return {
+        ...state,
+        cart: state.cart.filter((item) => item.id !== payload),
+      };
     case 'CART_LOADED_ERROR':
       return {
         ...state,
         isCartLoading: false,
-      }
-    case 'CART_LOADING':
-      return {
-        ...state,
-        isCartLoading: payload,
-      }
-    case 'ADD_TO_CART':
-      const product = payload
-      const isNewItem = state.cart.map((item) => item._id).indexOf(product._id) === -1
-      const itemProps = {
-        title: product.title,
-        price: product.price,
-        stock: product.stock,
-        thumbnail: product.thumbnail,
-        discountPercentage: product.discountPercentage,
-      }
-      const cartWithNewItem = !isNewItem
-        ? state.cart.map((item) =>
-            item._id === product._id
-              ? {
-                  ...item,
-                  quantity: item.quantity + 1,
-                  ...itemProps,
-                }
-              : item
-          )
-        : [...state.cart, { _id: product._id, quantity: 1, ...itemProps }]
-      localStorage.setItem('cart', JSON.stringify(cartWithNewItem))
-      return {
-        ...state,
-        cart: cartWithNewItem,
-        isCartLoading: false,
-      }
-    case 'REMOVE_FROM_CART':
-      const selectedRawProductIndex = state.cart.findIndex((item) => item._id === payload)
-      const currentProduct = selectedRawProductIndex !== -1 ? state.cart[selectedRawProductIndex] : null
-      let cartWithoutOneItem
-
-      if (currentProduct) {
-        if (currentProduct?.quantity <= 1) {
-          cartWithoutOneItem = state.cart.filter((item) => item._id !== currentProduct._id)
-        } else {
-          cartWithoutOneItem = state.cart.map((item) =>
-            item._id === currentProduct._id
-              ? {
-                  ...item,
-                  quantity: item.quantity - 1,
-                }
-              : item
-          )
-        }
-      }
-
-      cartWithoutOneItem.length
-        ? localStorage.setItem('cart', JSON.stringify(cartWithoutOneItem))
-        : localStorage.removeItem('cart')
-      return {
-        ...state,
-        cart: cartWithoutOneItem,
-        isCartLoading: false,
-      }
-    case 'REMOVE_WHOLE_PRODUCT_FROM_CART':
-      const filteredCart = state.cart.filter((product) => product._id !== payload)
-
-      filteredCart.length ? localStorage.setItem('cart', JSON.stringify(filteredCart)) : localStorage.removeItem('cart')
-      return {
-        ...state,
-        cart: filteredCart,
-        isCartLoading: false,
-      }
+      };
     case 'RESET_CART':
-      localStorage.removeItem('cart')
+      localStorage.removeItem('cart');
       return {
         ...state,
         cart: [],
         isCartLoading: false,
-      }
+      };
     default:
-      return state
+      return state;
   }
-}
-
-const cart = JSON.parse(localStorage.cart ?? '[]')
-const itemIds = JSON.parse(localStorage.cart ?? '[]').map((item) => item?._id)
+};
 
 const initialState = {
-  cart,
+  cart: [],
   quantity: 0,
   totalPrice: 0,
   isCartLoading: true,
-}
+};
 
-const CartContext = createContext(initialState)
+const CartContext = createContext(initialState);
 
 const CartProvider = ({ children }) => {
-  const { enqueueSnackbar } = useSnackbar()
-  const { isAuthenticated } = useAuth()
-  const [state, dispatch] = useReducer(cartReducer, initialState)
-  const { data, error } = useSWR(
-    cart.length && isAuthenticated ? `/products/by-ids?${queryParamAsArray('productIds', itemIds)}` : null,
-    {
-      refreshInterval: 86400000, // 24 hours
+  const { enqueueSnackbar } = useSnackbar();
+  const [state, dispatch] = useReducer(cartReducer, initialState);
+
+  const userId = localStorage.getItem('userId');
+  const token = localStorage.getItem('accessToken');
+
+  const fetchCartDetails = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/carts/details/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const fetchedCart = response.data;
+      const totalQuantity = fetchedCart.reduce((sum, item) => sum + item.quantity, 0);
+      const totalPrice = fetchedCart.reduce((sum, item) => sum + getFinalPrice(item) * item.quantity, 0);
+
+      dispatch({ type: 'CART_LOADED', payload: fetchedCart });
+      dispatch({ type: 'UPDATE_TOTALS', payload: { quantity: totalQuantity, totalPrice: totalPrice } });
+    } catch (error) {
+      console.error('Lỗi khi lấy giỏ hàng:', error);
+      dispatch({ type: 'CART_LOADED_ERROR' });
     }
-  )
+  };
 
   useEffect(() => {
-    if (!error && data) {
-      dispatch({
-        type: 'CART_LOADED',
-        payload: data.result,
-      })
-    } else {
-      dispatch({
-        type: 'CART_LOADED_ERROR',
-      })
+    if (userId && token) {
+      fetchCartDetails();
     }
-  }, [data, error])
+  }, [userId, token]);
 
-  const addToCart = (product, showNotification = true) => {
-    setCartLoadingState(true)
-    dispatch({
-      type: 'ADD_TO_CART',
-      payload: product,
-    })
-    showNotification && enqueueSnackbar(`You added ${product.title} to your cart`, { variant: 'success' })
-  }
+  const addToCart = async (inventoryId, quantity = 1) => {
+    if (!userId || !inventoryId || quantity <= 0) {
+      alert('Vui lòng chọn đầy đủ thông tin và nhập số lượng hợp lệ.');
+      return;
+    }
 
-  const removeFromCart = (productId, showNotification = true) => {
-    dispatch({
-      type: 'REMOVE_FROM_CART',
-      payload: productId,
-    })
-    showNotification && enqueueSnackbar(`You successfully removed one item from your cart`, { variant: 'success' })
-  }
+    try {
+      const existingProduct = state.cart.find(item => item.inventoryId === inventoryId);
 
-  const removeWholeProductFromCart = (productId, showNotification = true) => {
-    dispatch({
-      type: 'REMOVE_WHOLE_PRODUCT_FROM_CART',
-      payload: productId,
-    })
-    showNotification && enqueueSnackbar(`You successfully removed one item from your cart`, { variant: 'success' })
-  }
+      if (existingProduct) {
+        const newQuantity = existingProduct.quantity + quantity;
+        await axios.put(
+          `http://localhost:8080/api/carts/${existingProduct.id}`,
+          { userId: parseInt(userId, 10), inventoryId, quantity: newQuantity },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.post(
+          'http://localhost:8080/api/carts',
+          { userId: parseInt(userId, 10), inventoryId, quantity },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
 
-  const resetCart = () => {
-    dispatch({
-      type: 'RESET_CART',
-    })
-  }
-
-  const setCartLoadingState = (boolean) => {
-    dispatch({
-      type: 'CART_LOADING',
-      payload: boolean,
-    })
-  }
+      fetchCartDetails();
+      enqueueSnackbar('Thêm vào giỏ hàng thành công!', { variant: 'success' });
+    } catch (error) {
+      console.error('Lỗi khi thêm vào giỏ hàng:', error);
+      alert('Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
+    }
+  };
 
   const getFinalPrice = (product) => {
     return product.discountPercentage > 0
       ? product.price - (product.price / 100) * product.discountPercentage
-      : product.price
-  }
+      : product.price;
+  };
 
-  const getQuantity = (productId) => {
-    return state.cart.map((item) => item._id).includes(productId)
-      ? state.cart.find((product) => product._id === productId)?.quantity
-      : 0
-  }
+  const updateQuantity = async (cartId, quantity, inventoryId) => {
+    try {
+      await axios.put(
+        `http://localhost:8080/api/carts/${cartId}`,
+        { quantity, userId, inventoryId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      dispatch({
+        type: 'UPDATE_CART_ITEM',
+        payload: { id: cartId, quantity },
+      });
+      fetchCartDetails();
+    } catch (error) {
+      console.error('Lỗi khi cập nhật số lượng:', error);
+    }
+  };
+
+  const removeProduct = async (cartId) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/carts/${cartId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch({
+        type: 'REMOVE_CART_ITEM',
+        payload: cartId,
+      });
+      fetchCartDetails();
+    } catch (error) {
+      console.error('Lỗi khi xóa sản phẩm:', error);
+    }
+  };
+
+  const resetCart = async () => {
+    try {
+      const cartIds = state.cart.map(item => item.id);
+      const accessToken = localStorage.getItem('accessToken');
+  
+      await Promise.all(cartIds.map(id =>
+        axios.delete(`http://localhost:8080/api/carts/${id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+      ));
+  
+      dispatch({ type: 'RESET_CART' });
+  
+      // Gọi lại fetchCartDetails để cập nhật state và render lại giao diện
+      await fetchCartDetails();
+  
+      console.log('Giỏ hàng đã được xóa thành công');
+    } catch (error) {
+      console.error('Lỗi khi xóa giỏ hàng:', error);
+      alert('Có lỗi xảy ra khi xóa giỏ hàng');
+    }
+  };
 
   return (
     <CartContext.Provider
       value={{
         cart: state.cart,
-        itemIds: state.cart.map((item) => item._id),
-        quantity: state.cart
-          .map((item) => item.quantity)
-          .reduce((accumulator, currentValue) => accumulator + currentValue, 0),
-        totalPrice: state.cart
-          .map((product) => +(getFinalPrice(product) * product.quantity).toFixed(2))
-          .reduce((accumulator, currentValue) => accumulator + currentValue, 0),
+        quantity: state.quantity,
+        totalPrice: state.totalPrice,
         isCartLoading: state.isCartLoading,
-        addToCart,
         resetCart,
-        getQuantity,
+        updateQuantity,
+        removeProduct,
         getFinalPrice,
-        removeFromCart,
-        setCartLoadingState,
-        removeWholeProductFromCart,
+        addToCart,
       }}
-      displayName="Shopping Cart"
     >
       {children}
     </CartContext.Provider>
-  )
-}
+  );
+};
 
 const useCart = () => {
-  const context = useContext(CartContext)
-
+  const context = useContext(CartContext);
   if (context === undefined) {
-    throw new Error('useCart can only be used inside CartProvider')
+    throw new Error('useCart can only be used inside CartProvider');
   }
+  return context;
+};
 
-  return context
-}
-
-export { CartProvider, useCart }
+export { CartProvider, useCart };

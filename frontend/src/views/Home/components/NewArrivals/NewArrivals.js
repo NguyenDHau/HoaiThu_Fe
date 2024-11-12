@@ -1,43 +1,60 @@
-import { Box, Button, CardActionArea, CardMedia, Grid, Link, Paper, Typography } from '@mui/material'
-import { DisplayCurrency } from 'components'
-import Headline from '../Headline'
+import { useEffect, useState } from 'react'
 import { ArrowRight } from '@mui/icons-material'
-import NewReleasesIcon from '@mui/icons-material/NewReleases';
-
-const newArrivalsDetails = [
-  {
-    title: 'Sunglass',
-    imgURL: '/images/imagegoggles.webp',
-    price: 150,
-  },
-  {
-    title: 'Makeup',
-    imgURL: '/images/makeup.webp',
-    price: 250,
-  },
-  {
-    title: 'Smart Watch',
-    imgURL: '/images/bgwatch.webp',
-    price: 350,
-  },
-  {
-    title: 'Lipstick',
-    imgURL: '/images/lipstick.webp',
-    price: 15,
-  },
-  {
-    title: 'Green Plant',
-    imgURL: '/images/plant.webp',
-    price: 55,
-  },
-  {
-    title: 'Bonsai Tree',
-    imgURL: '/images/bonsai.webp',
-    price: 535,
-  },
-]
+import { Button, Card, CardActionArea, CardContent, CardMedia, Chip, Link, Paper, useTheme } from '@mui/material'
+import { SliderArrow } from 'components'
+import Headline from '../Headline'
+import NewReleasesIcon from '@mui/icons-material/NewReleases'
+import Slider from 'react-slick'
+import axios from 'axios'
 
 const NewArrivals = () => {
+  const theme = useTheme()
+  const [branches, setBranches] = useState([])
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/branches')
+        console.log("Fetched branches:", response.data)
+        setBranches(response.data)
+      } catch (error) {
+        console.error("Error fetching branches:", error)
+      }
+    }
+
+    fetchBranches()
+  }, [])
+
+  const settings = {
+    dots: false,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 4, // Hiển thị nhiều hơn để thu nhỏ khoảng cách
+    slidesToScroll: 1,
+    nextArrow: <SliderArrow right />,
+    prevArrow: <SliderArrow />,
+    responsive: [
+      {
+        breakpoint: theme.breakpoints.values.lg,
+        settings: {
+          slidesToShow: 3,
+        },
+      },
+      {
+        breakpoint: theme.breakpoints.values.md,
+        settings: {
+          slidesToShow: 2,
+        },
+      },
+      {
+        breakpoint: theme.breakpoints.values.sm,
+        settings: {
+          slidesToShow: 1,
+        },
+      },
+    ],
+  }
+
   return (
     <>
       <Headline
@@ -52,39 +69,46 @@ const NewArrivals = () => {
             View all
           </Button>
         }
+        sx={{ marginTop: 4 }}
       >
-        New Arrivals
+        Branchs
       </Headline>
-      <Paper sx={{ p: 2 }}>
-        <Grid container spacing={3}>
-          {newArrivalsDetails.map((item, i) => (
-            <Grid item xs={6} md={3} sm={4} lg={2} key={i}>
-              <Box sx={{ m: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }} key={i}>
-                <CardActionArea sx={{ mb: 1.5 }}>
+      <Slider {...settings} style={{ padding: '0 8px' }}> {/* Giảm padding của Slider */}
+        {branches.map((branch) => (
+          <div key={branch.id} style={{ padding: '4px' }}> {/* Giảm padding của từng phần tử */}
+            <Card
+              elevation={0}
+              sx={{
+                boxSizing: 'border-box',
+                borderRadius: '12px', // Bo góc nhẹ cho card
+                overflow: 'hidden', // Ẩn phần tràn của ảnh
+                margin: '0 auto', // Căn giữa card
+              }}
+            >
+              <CardActionArea>
+                <Paper elevation={1} sx={{ overflow: 'hidden', position: 'relative', borderRadius: '12px' }}>
+                  <Chip
+                    color="secondary"
+                    size="small"
+                    sx={{ px: 0.5, position: 'absolute', top: 10, left: 10, fontWeight: 600 }}
+                    label={branch.branchName}
+                  />
                   <CardMedia
                     component="img"
-                    image={item.imgURL}
-                    alt={item.title}
-                    sx={{ borderRadius: '8px', aspectRatio: 1 / 1 }}
+                    image={branch.branchUrl || '/images/default-product.webp'}
+                    alt={branch.branchName}
+                    sx={{
+                      width: '100%', // Chiều rộng 100% để ảnh cân đối trong card
+                      height: 'auto', // Giữ nguyên tỉ lệ ảnh và cho phép hiển thị tối đa kích thước
+                      objectFit: 'contain', // Đảm bảo ảnh không bị cắt
+                    }}
                   />
-                </CardActionArea>
-                <Typography variant="h6" align="center" sx={{ fontSize: '14px !important', fontWeight: 600 }}>
-                  {item.title}
-                </Typography>
-
-                <Typography
-                  color="primary"
-                  variant="h6"
-                  align="center"
-                  sx={{ fontSize: '14px !important', fontWeight: 600 }}
-                >
-                  <DisplayCurrency number={item.price} />
-                </Typography>
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
+                </Paper>
+              </CardActionArea>
+            </Card>
+          </div>
+        ))}
+      </Slider>
     </>
   )
 }

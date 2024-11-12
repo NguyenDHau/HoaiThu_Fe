@@ -1,104 +1,124 @@
-import { Box, Button, Step, StepLabel, Stepper, Grid, Typography } from '@mui/material'
-import { useFormik } from 'formik'
-import { PageLayout } from 'layouts/Main/components'
-import { useState } from 'react'
-import Cart from 'views/Cart'
-import { API_URL } from 'config'
-import axios from 'axios'
-import { useCart } from 'core'
-import { validationSchemas } from './validationSchemas'
-import { useError } from 'utils/hooks'
-import { useSnackbar } from 'notistack'
-import { PageURLs } from 'Routes'
-import { useNavigate } from 'react-router-dom'
-import { Shipping, Payment } from './components'
+import { Box, Button, Step, StepLabel, Stepper, Grid, Typography } from '@mui/material';
+import { useFormik } from 'formik';
+import { PageLayout } from 'layouts/Main/components';
+import { useState } from 'react';
+import Cart from 'views/Cart';
+import { useCart } from 'core';
+import { validationSchemas } from './validationSchemas';
+import { useSnackbar } from 'notistack';
+import { PageURLs } from 'Routes';
+import { useNavigate } from 'react-router-dom';
+import { Shipping, Payment } from './components';
+import axios from 'axios';
 
 const Checkout = () => {
-  const { setError } = useError()
-  const { cart: originalCart, resetCart } = useCart()
-  const { enqueueSnackbar } = useSnackbar()
-  const navigate = useNavigate()
+  const { cart, totalPrice, resetCart } = useCart();
+  const { enqueueSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+  
+  const [activeStep, setActiveStep] = useState(0);
 
-  const [activeStep, setActiveStep] = useState(0)
+  console.log("Cart:", cart);
 
   const formik = useFormik({
     initialValues: {
       address: {
-        fullName: '',
-        phone: '',
-        email: '',
-        zip: '',
-        address1: '',
-        address2: '',
-        country: 'Bulgaria',
+        fullName: 'Nguyễn Duy Hậu',
+        phone: '0906446132',
+        email: 'ndhau261102@gmail.com',
+        address1: '178,Trần Đại Nghĩa',
       },
       payment: {
-        type: 'delivery',
+        type: '',
+        orderNote: '',
         card: {
           number: '',
           name: '',
           expiryDate: '',
           ccv: '',
         },
-        details: '',
+        details: 'Không',
       },
     },
     validationSchema: activeStep in validationSchemas ? validationSchemas[activeStep] : null,
     onSubmit: async (values) => {
-      const cart = originalCart.map((item) => {
-        return { product: item._id, quantity: item.quantity }
-      })
-
       try {
-        const { data } = await axios.post(`${API_URL}/checkouts/create`, { cart, ...values })
-        enqueueSnackbar(data.message, {
-          variant: 'success',
-        })
-        resetCart()
-        navigate(`${PageURLs.Order}/${data.id}`)
+        const accessToken = localStorage.getItem('accessToken');
+        const userId = localStorage.getItem('userId');
+    
+        const { data } = await axios.post(
+          'http://localhost:8080/api/orders/create',
+          {
+            paymentMethod: values.payment.type,
+            shippingAddress: values.address.address1,
+            cusName: values.address.fullName,
+            cusPhone: values.address.phone,
+            cusEmail: values.address.email,
+            orderNote: values.payment.orderNote,
+            userId: userId,
+            toTal: totalPrice,
+          },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+    
+        const orderId = data.id;
+    
+        // Tạo order-details cho từng sản phẩm trong giỏ hàng
+        await Promise.all(
+          cart.map(item =>
+            axios.post(
+              'http://localhost:8080/api/order-details/create',
+              {
+                orderId,
+                inventoryId: item.inventoryId,
+                quantity: item.quantity,
+              },
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            )
+          )
+        );
+    
+        resetCart();
+        enqueueSnackbar('Đơn hàng đã được tạo thành công!', { variant: 'success' });
+        navigate(`${PageURLs.Order}/${orderId}`);
       } catch (error) {
-        setError(error)
+        console.error('Lỗi khi tạo đơn hàng:', error);
+        enqueueSnackbar('Lỗi khi tạo đơn hàng', { variant: 'error' });
       }
     },
-  })
-
-  if (originalCart.length < 1) {
-    setTimeout(function () {
-      navigate('/')
-    }, 5000)
-  }
+    
+    
+  });
 
   const steps = [
-    { label: 'Cart', component: <Cart withoutFooter={true} /> },
-    { label: 'Shipping', component: <Shipping formik={formik} /> },
-    { label: 'Payment', component: <Payment formik={formik} /> },
-  ]
+    { label: 'Giỏ hàng', component: <Cart withoutFooter={true} /> },
+    { label: 'Vận chuyển', component: <Shipping formik={formik} /> },
+    { label: 'Thanh toán', component: <Payment formik={formik} /> },
+  ];
 
   const handleNext = () => {
     if (activeStep === steps.length - 1) {
-      formik.handleSubmit()
-    } else {
-      setActiveStep((prevActiveStep) => prevActiveStep + 1)
+      formik.handleSubmit();
+    } else if (formik.isValid) {
+      setActiveStep((prevActiveStep) => prevActiveStep + 1);
     }
-  }
+  };
 
   const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1)
-  }
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
 
   return (
     <PageLayout isAsync={false} container>
-      {originalCart.length > 0 ? (
+      {cart.length > 0 ? (
         <Grid container>
           <Grid item sm={12} display={{ sm: 'block', xs: 'none', m: 2 }}>
             <Stepper activeStep={activeStep} sx={{ px: 2 }}>
-              {steps.map((step, index) => {
-                return (
-                  <Step key={step.label}>
-                    <StepLabel>{step.label}</StepLabel>
-                  </Step>
-                )
-              })}
+              {steps.map((step) => (
+                <Step key={step.label}>
+                  <StepLabel>{step.label}</StepLabel>
+                </Step>
+              ))}
             </Stepper>
           </Grid>
           <Grid item xs={12}>
@@ -108,7 +128,7 @@ const Checkout = () => {
             <Grid container spacing={2} sx={{ px: 3 }}>
               <Grid item sm={4} xs={12}>
                 <Button fullWidth color="primary" disabled={activeStep === 0} onClick={handleBack} variant="outlined">
-                  {activeStep === 0 ? 'Back' : `Back to ${steps[activeStep - 1].label}`}
+                  {activeStep === 0 ? 'Quay lại' : `Quay lại ${steps[activeStep - 1].label}`}
                 </Button>
               </Grid>
               <Grid item sm={4} xs={12}>
@@ -117,24 +137,21 @@ const Checkout = () => {
                   variant="contained"
                   onClick={handleNext}
                   color="primary"
-                  disabled={(activeStep !== 0 && !(formik.isValid && formik.dirty)) || originalCart.length === 0}
+                  disabled={(activeStep !== 0 && !formik.isValid) || cart.length === 0}
                 >
-                  {activeStep === steps.length - 1 ? 'Place order' : `Proceed to ${steps[activeStep + 1].label}`}
+                  {activeStep === steps.length - 1 ? 'Đặt hàng' : `Tiếp tục đến ${steps[activeStep + 1].label}`}
                 </Button>
               </Grid>
             </Grid>
           </Grid>
         </Grid>
       ) : (
-        <>
-          <Cart withoutFooter={true} />
-          <Typography align="center" vartiant="subtitle1" fontWeight="bold">
-            You will be redirected to the homepage in 5 seconds
-          </Typography>
-        </>
+        <Typography align="center" variant="subtitle1" fontWeight="bold">
+          Bạn sẽ được chuyển hướng đến trang chính trong 5 giây
+        </Typography>
       )}
     </PageLayout>
-  )
-}
+  );
+};
 
-export default Checkout
+export default Checkout;

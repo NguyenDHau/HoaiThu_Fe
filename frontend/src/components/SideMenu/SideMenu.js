@@ -36,30 +36,6 @@ const SideMenu = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center' }}>
           <Divider sx={{ width: '100%' }} />
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', my: 2 }}>
-            <Typography fontSize={14} fontWeight={600}>
-              Additional Comments
-            </Typography>
-            <Box
-              sx={{
-                backgroundColor: 'primary.light',
-                px: 1,
-                py: 0.5,
-                fontSize: 12,
-                textAlign: 'center',
-                ml: 1,
-                borderRadius: 0.5,
-              }}
-            >
-              Note
-            </Box>
-          </Box>
-
-          <Box>
-            <TextField multiline minRows={5} maxRows={5} name="requests" fullWidth />
-          </Box>
-        </Box>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignContent: 'center', my: 2 }}>
           <Divider sx={{ width: '100%' }} />
         </Box>

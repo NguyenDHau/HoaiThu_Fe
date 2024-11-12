@@ -1,53 +1,58 @@
+import React from 'react'
 import { Box, Card, CardContent, CardMedia, IconButton, Typography } from '@mui/material'
-import { DisplayCurrency } from 'components'
-import { useCart } from 'core'
 import RemoveIcon from '@mui/icons-material/Remove'
 import AddIcon from '@mui/icons-material/Add'
 import { Close } from '@mui/icons-material'
+import { DisplayCurrency } from 'components'
+import { useCart } from 'core'
 
 const CartProduct = ({ product }) => {
-  const { addToCart, removeFromCart, getFinalPrice, removeWholeProductFromCart } = useCart()
-  const finalPrice = getFinalPrice(product)
+  const { updateQuantity, removeProduct, getFinalPrice } = useCart()
+  const { cart } = useCart();
+
+  const handleIncrease = () => {
+    const newQuantity = product.quantity + 1
+    updateQuantity(product.id, newQuantity, product.inventoryId)
+  }
+
+  const handleDecrease = () => {
+    const newQuantity = product.quantity - 1
+    if (newQuantity > 0) {
+      updateQuantity(product.id, newQuantity, product.inventoryId)
+    } else {
+      removeProduct(product.id)
+    }
+  }
 
   return (
     <Card sx={{ display: 'flex', height: 140, mb: 3, position: 'relative' }}>
-      <CardMedia component="img" sx={{ width: 140 }} image={product.thumbnail} alt={product.title} />
+      <CardMedia component="img" sx={{ width: 100 }} image={product.fileUrl} alt={product.productName} />
       <CardContent sx={{ flex: '1 0 auto' }}>
-        <Typography variant="h6">{product.title}</Typography>
-        <Typography variant="body2" component="div">
-          {product.discountPercentage > 0 ? (
-            <>
-              <Box display="flex" alignItems="center">
-                <Box>
-                  <DisplayCurrency number={finalPrice} />
-                </Box>
-                <Box sx={{ textDecoration: 'line-through', ml: 1, color: 'error.main', display: 'inline' }}>
-                  <DisplayCurrency number={product.price} />
-                </Box>
-              </Box>
-            </>
-          ) : (
-            <DisplayCurrency number={finalPrice} />
-          )}
+        <Typography variant="h6">{product.productName}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Color: {product.colorName} - Size: {product.sizeName}
         </Typography>
-        <Box display="flex" alignItems="center">
-          <IconButton onClick={() => removeFromCart(product._id)}>
+        <Typography variant="body2">
+          Price: <DisplayCurrency number={getFinalPrice(product)} />
+        </Typography>
+        <Box display="flex" alignItems="center" mt={1}>
+          <IconButton onClick={handleDecrease}>
             <RemoveIcon />
           </IconButton>
           <Typography variant="h6">{product.quantity}</Typography>
-          <IconButton onClick={() => addToCart(product)} disabled={product.quantity >= product.stock}>
+          <IconButton onClick={handleIncrease}>
             <AddIcon />
           </IconButton>
         </Box>
         <Typography variant="overline">
-          <DisplayCurrency number={finalPrice} /> x {product.quantity} ={' '}
-          <DisplayCurrency number={finalPrice * product.quantity} />
+          <DisplayCurrency number={product.price} /> x {product.quantity} ={' '}
+          <DisplayCurrency number={getFinalPrice(product) * product.quantity} />
         </Typography>
       </CardContent>
       <IconButton
         size="small"
         sx={{ position: 'absolute', top: 0, right: 0 }}
-        onClick={() => removeWholeProductFromCart(product._id)}
+        onClick={() => removeProduct(product.id)}
       >
         <Close />
       </IconButton>
